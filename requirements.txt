@@ -1,4 +1,6 @@
 flask>=3.0
 openai>=1.14
 python-dotenv>=1.0
+montreal-forced-aligner>=3.2
+pydub>=0.25
 
