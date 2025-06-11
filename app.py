@@ -1,7 +1,8 @@
 import os
+import os
 import tempfile
 import subprocess
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, abort
 from dotenv import load_dotenv
 import openai
 import random
@@ -27,10 +28,15 @@ def transcribe_by_word(audio_path: str, transcript: str) -> str:
             f.write(transcript)
 
         out_dir = os.path.join(workdir, "aligned")
-        subprocess.run(
-            ["mfa", "align", corpus_dir, "english_us_arpa", "english_us_arpa", out_dir, "--clean", "-q"],
-            check=True,
-        )
+        try:
+            subprocess.run(
+                ["mfa", "align", corpus_dir, "english_us_arpa", "english_us_arpa", out_dir, "--clean", "-q"],
+                check=True,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+            raise RuntimeError(
+                "Montreal Forced Aligner failed to run. Is the 'mfa' command installed?"
+            ) from exc
 
         tg_path = os.path.join(out_dir, "audio.TextGrid")
         tg = textgrid.openTextgrid(tg_path, includeEmptyIntervals=False)
@@ -65,8 +71,12 @@ def transcribe():
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
         file.save(tmp.name)
-        text = transcribe_by_word(tmp.name, sentence)
-    os.remove(tmp.name)
+        try:
+            text = transcribe_by_word(tmp.name, sentence)
+        except RuntimeError as exc:
+            os.remove(tmp.name)
+            abort(500, str(exc))
+        os.remove(tmp.name)
 
     return jsonify({"text": text})
 
