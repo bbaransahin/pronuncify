@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>Whisper Pronunciation Coach</title>
+
+<!-- Optional Google Font -->
+<link rel="preconnect" href="https://fonts.gstatic.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --bg-1: #eef2f6;
+    --bg-2: #ffffff;
+    --accent: #2563eb;
+    --accent-dark: #1d4ed8;
+    --text-main: #1e293b;
+    --text-sub: #475569;
+    --radius: 20px;
+  }
+
+  /* ----- GLOBAL ----- */
+  * { box-sizing:border-box; }
+  body {
+    font-family: "Inter", system-ui, sans-serif;
+    background: var(--bg-1);
+    color: var(--text-main);
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    min-height:100vh;
+    margin:0;
+    padding:1rem;
+  }
+
+  /* ----- CARD ----- */
+  .card {
+    background:var(--bg-2);
+    width:min(100%, 480px);
+    padding:2.5rem 2rem 3rem;
+    border-radius:var(--radius);
+    box-shadow:0 12px 24px rgba(0,0,0,.06);
+    text-align:center;
+  }
+
+  #sentence-box {
+    font-size:1.4rem;
+    font-weight:600;
+    line-height:1.4;
+    margin-bottom:1.75rem;
+  }
+
+  /* ----- BUTTONS ----- */
+  .btn {
+    display:inline-block;
+    font-size:1rem;
+    font-weight:600;
+    padding:.9rem 2rem;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    transition:transform .15s ease, background .15s ease;
+    margin:.5rem .25rem;
+  }
+  .btn-primary {
+    background:var(--accent);
+    color:#fff;
+  }
+  .btn-secondary {
+    background:#e2e8f0;
+    color:var(--text-main);
+  }
+  .btn:hover { transform:translateY(-2px); }
+  .btn-primary:hover { background:var(--accent-dark); }
+  .btn-secondary:hover { background:#cbd5e1; }
+
+  /* ----- RESULTS ----- */
+  #transcript {
+    margin-top:1.75rem;
+    font-size:1.1rem;
+    color:var(--text-sub);
+    white-space:pre-wrap;
+    word-break:break-word;
+  }
+  #comparison {
+    margin-top:1rem;
+    font-size:1.2rem;
+    line-height:1.6;
+    word-break:break-word;
+  }
+</style>
+</head>
+
+<body>
+  <div class="card">
+    <div id="sentence-box"></div>
+    <div>
+      <button id="rec-btn" class="btn btn-primary" onclick="toggleRecording()">Start Recording</button>
+      <button id="new-btn" class="btn btn-secondary" onclick="pickSentence()">New Sentence</button>
+    </div>
+
+    <pre id="transcript"></pre>
+    <div id="comparison"></div>
+  </div>
+
+<script>
+/* ===== CONFIG ===== */
+let sentences = [];
+let recording = false, mediaRecorder, chunks = [], currentSentence = "";
+
+/* ===== LOAD SENTENCES ===== */
+async function pickSentence() {
+  try {
+    const resp = await fetch("/random-sentence");
+    const data = await resp.json();
+    currentSentence = data.sentence;
+    document.getElementById("sentence-box").textContent = currentSentence;
+    document.getElementById("transcript").textContent = "";
+    document.getElementById("comparison").innerHTML = "";
+  } catch (err) {
+    console.error("Failed to load sentence:", err);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", pickSentence);
+
+/* ===== TOKENIZE + COMPARE ===== */
+function tokenize(t){ return t.toLowerCase().match(/\b[\w']+\b/g)||[] }
+function compare(s,t){
+  const sT=tokenize(s), tT=tokenize(t);
+  const len=Math.max(sT.length,tT.length);
+  let html="";
+  for(let i=0;i<len;i++){
+    const w=tT[i]??sT[i]??"";
+    if(!w) continue;
+    const ok=(sT[i]||"")===w;
+    html+=`<span style="color:${ok?'#16a34a':'#dc2626'}">${w}</span> `;
+  }
+  return html.trim();
+}
+
+/* ===== RECORD / STOP ===== */
+async function toggleRecording() {
+  const btn = document.getElementById("rec-btn");
+  if(!recording){
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    mediaRecorder = new MediaRecorder(stream,{mimeType:"audio/webm"});
+    chunks=[];
+    mediaRecorder.ondataavailable=e=>chunks.push(e.data);
+    mediaRecorder.onstop=()=>sendAudio(new Blob(chunks,{type:"audio/webm"}));
+    mediaRecorder.start();
+    recording=true; btn.textContent="Stop & Transcribe";
+  }else{
+    recording=false; btn.textContent="Start Recording"; mediaRecorder.stop();
+  }
+}
+
+/* ===== SEND TO BACKEND ===== */
+async function sendAudio(blob){
+  const fd=new FormData(); fd.append("audio",blob,"speech.webm");
+  const transcriptEl=document.getElementById("transcript");
+  transcriptEl.textContent="Transcribing…";
+  const r=await fetch("/transcribe",{method:"POST",body:fd});
+  const d=await r.json();
+  transcriptEl.textContent=d.text||"(no text)";
+  document.getElementById("comparison").innerHTML=compare(currentSentence,d.text||"");
+}
+
+</script>
+</body>
+</html>
+
