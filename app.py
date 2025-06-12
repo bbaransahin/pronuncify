@@ -1,13 +1,13 @@
 import os
-import os
 import tempfile
-import subprocess
+import json
 from flask import Flask, render_template, request, jsonify, abort
 from dotenv import load_dotenv
 import openai
 import random
 from pydub import AudioSegment
-from praatio import textgrid
+from aeneas.executetask import ExecuteTask
+from aeneas.task import Task
 
 load_dotenv()                                # pulls OPENAI_API_KEY
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -16,38 +16,35 @@ app = Flask(__name__)
 
 
 def transcribe_by_word(audio_path: str, transcript: str) -> str:
-    """Align the audio to the sentence with MFA and transcribe each word."""
+    """Align the audio to the sentence with Aeneas and transcribe each word."""
     with tempfile.TemporaryDirectory() as workdir:
-        corpus_dir = os.path.join(workdir, "corpus")
-        os.makedirs(corpus_dir, exist_ok=True)
-
-        wav_path = os.path.join(corpus_dir, "audio.wav")
+        wav_path = os.path.join(workdir, "audio.wav")
         AudioSegment.from_file(audio_path).export(wav_path, format="wav")
 
-        with open(os.path.join(corpus_dir, "audio.txt"), "w", encoding="utf-8") as f:
-            f.write(transcript)
+        txt_path = os.path.join(workdir, "transcript.txt")
+        words = [w for w in transcript.strip().split() if w]
+        with open(txt_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(words))
 
-        out_dir = os.path.join(workdir, "aligned")
-        try:
-            subprocess.run(
-                ["mfa", "align", corpus_dir, "english_us_arpa", "english_us_arpa", out_dir, "--clean", "-q"],
-                check=True,
-            )
-        except (FileNotFoundError, subprocess.CalledProcessError) as exc:
-            raise RuntimeError(
-                "Montreal Forced Aligner failed to run. Is the 'mfa' command installed?"
-            ) from exc
+        task = Task(
+            config_string="task_language=eng|is_text_type=plain|os_task_file_format=json"
+        )
+        task.audio_file_path_absolute = wav_path
+        task.text_file_path_absolute = txt_path
+        sync_map_path = os.path.join(workdir, "map.json")
+        task.sync_map_file_path_absolute = sync_map_path
+        ExecuteTask(task).execute()
+        task.output_sync_map_file()
 
-        tg_path = os.path.join(out_dir, "audio.TextGrid")
-        tg = textgrid.openTextgrid(tg_path, includeEmptyIntervals=False)
-        word_tier = tg.getTier("words")
+        with open(sync_map_path, "r", encoding="utf-8") as f:
+            mapping = json.load(f)
+
         audio = AudioSegment.from_wav(wav_path)
-
-        words = []
-        for i, interval in enumerate(word_tier.entries):
-            if not interval.label.strip():
-                continue
-            seg = audio[int(interval.start * 1000) : int(interval.end * 1000)]
+        results = []
+        for i, fragment in enumerate(mapping.get("fragments", [])):
+            start = float(fragment.get("begin", 0))
+            end = float(fragment.get("end", 0))
+            seg = audio[int(start * 1000) : int(end * 1000)]
             seg_path = os.path.join(workdir, f"word_{i}.wav")
             seg.export(seg_path, format="wav")
             with open(seg_path, "rb") as sf:
@@ -56,9 +53,9 @@ def transcribe_by_word(audio_path: str, transcript: str) -> str:
                     file=sf,
                     language="en",
                 )
-                words.append(resp.text.strip())
+                results.append(resp.text.strip())
 
-        return " ".join(words)
+        return " ".join(results)
 
 @app.route("/")
 def home():
