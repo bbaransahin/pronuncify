@@ -45,6 +45,8 @@ def transcribe_by_word(audio_path: str, transcript: str) -> str:
             start = float(fragment.get("begin", 0))
             end = float(fragment.get("end", 0))
             seg = audio[int(start * 1000) : int(end * 1000)]
+            if len(seg) < 100:
+                seg += AudioSegment.silent(duration=100 - len(seg))
             seg_path = os.path.join(workdir, f"word_{i}.wav")
             seg.export(seg_path, format="wav")
             with open(seg_path, "rb") as sf:
