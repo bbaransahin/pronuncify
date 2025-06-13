@@ -1,6 +1,7 @@
 import os
 import tempfile
 import json
+import logging
 from flask import Flask, render_template, request, jsonify, abort
 from dotenv import load_dotenv
 import openai
@@ -14,9 +15,23 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 app = Flask(__name__)
 
+# Configure logging to file for debugging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.FileHandler("app.log"),
+        logging.StreamHandler()
+    ],
+)
+
+logger = logging.getLogger(__name__)
+
 
 def transcribe_by_word(audio_path: str, transcript: str) -> str:
     """Align the audio to the sentence with Aeneas and transcribe each word."""
+    logger.info("Starting alignment")
+    logger.debug("Transcript: %s", transcript)
     with tempfile.TemporaryDirectory() as workdir:
         wav_path = os.path.join(workdir, "audio.wav")
         AudioSegment.from_file(audio_path).export(wav_path, format="wav")
@@ -44,6 +59,7 @@ def transcribe_by_word(audio_path: str, transcript: str) -> str:
         for i, fragment in enumerate(mapping.get("fragments", [])):
             start = float(fragment.get("begin", 0))
             end = float(fragment.get("end", 0))
+            logger.debug("Segment %d: %.3f to %.3f", i, start, end)
 
             start_ms = max(0, int(round(start * 1000)))
             end_ms = max(start_ms + 1, int(round(end * 1000)))
@@ -55,6 +71,7 @@ def transcribe_by_word(audio_path: str, transcript: str) -> str:
                 seg += AudioSegment.silent(duration=MIN_MS - len(seg))
             seg_path = os.path.join(workdir, f"word_{i}.wav")
             seg.export(seg_path, format="wav")
+            logger.debug("Transcribing segment %d", i)
             with open(seg_path, "rb") as sf:
                 resp = openai.audio.transcriptions.create(
                     model="whisper-1",
@@ -62,6 +79,7 @@ def transcribe_by_word(audio_path: str, transcript: str) -> str:
                     language="en",
                 )
                 results.append(resp.text.strip())
+                logger.debug("Segment %d result: %s", i, resp.text.strip())
 
         return " ".join(results)
 
@@ -73,6 +91,8 @@ def home():
 def transcribe():
     file = request.files["audio"]  # speech.webm
     sentence = request.form.get("sentence", "")
+    logger.info("Received transcription request")
+    logger.debug("Sentence: %s", sentence)
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
         file.save(tmp.name)
@@ -80,8 +100,10 @@ def transcribe():
             text = transcribe_by_word(tmp.name, sentence)
         except RuntimeError as exc:
             os.remove(tmp.name)
+            logger.exception("Alignment failed")
             abort(500, str(exc))
         os.remove(tmp.name)
+    logger.info("Transcription completed")
 
     return jsonify({"text": text})
 

@@ -25,3 +25,8 @@ pip install aeneas
 Aeneas requires `ffmpeg` and `espeak` to be installed on your system. Refer to
 the [Aeneas documentation](https://github.com/readbeyond/aeneas) for
 platform-specific installation instructions.
+
+## Logging
+
+The Flask server writes detailed logs to `app.log` in the project root. Check
+this file when debugging the alignment or transcription steps.
