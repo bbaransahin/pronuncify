@@ -30,3 +30,10 @@ platform-specific installation instructions.
 
 The Flask server writes detailed logs to `app.log` in the project root. Check
 this file when debugging the alignment or transcription steps.
+
+### OpenAI rate limits
+
+When Whisper API calls are made for each word, requests may hit OpenAI's
+per‑second rate limits. The backend inserts a one‑second pause between calls to
+avoid 429 errors. If you still see `Too Many Requests` in the log, increase the
+delay in `app.py`.
