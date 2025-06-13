@@ -7,7 +7,7 @@ AI assisted pronunciation training app
 This section explains how the app works
 
 ### Phonetic Comparision
-Phonetic comparision part first takes the sentence to pronunce and the voice recorded by the user while pronuncing the sentence. Instead of transcribing the full recording at once, the [Aeneas](https://www.readbeyond.it/aeneas/) aligner is used to obtain timestamps for every word. Each word segment is then fed to Whisper individually (to prevent transcribing words out of context) and compared with the corresponding word in the original sentence. Segments shorter than 100 ms are padded with silence so the Whisper API accepts them.
+Phonetic comparision part first takes the sentence to pronunce and the voice recorded by the user while pronuncing the sentence. Instead of transcribing the full recording at once, the [Aeneas](https://www.readbeyond.it/aeneas/) aligner is used to obtain timestamps for every word. Each word segment is then fed to Whisper individually (to prevent transcribing words out of context) and compared with the corresponding word in the original sentence. Segments shorter than 150 ms are padded with silence so the Whisper API accepts them.
 
 ## Setup
 
