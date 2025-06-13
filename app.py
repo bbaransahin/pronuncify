@@ -2,17 +2,18 @@ import os
 import tempfile
 import json
 import logging
-import time
 from flask import Flask, render_template, request, jsonify, abort
 from dotenv import load_dotenv
-import openai
+import whisper
 import random
 from pydub import AudioSegment
 from aeneas.executetask import ExecuteTask
 from aeneas.task import Task
 
-load_dotenv()                                # pulls OPENAI_API_KEY
-openai.api_key = os.getenv("OPENAI_API_KEY")
+load_dotenv()
+
+# Load Whisper model once at startup
+whisper_model = whisper.load_model("base.en")
 
 app = Flask(__name__)
 
@@ -73,15 +74,9 @@ def transcribe_by_word(audio_path: str, transcript: str) -> str:
             seg_path = os.path.join(workdir, f"word_{i}.wav")
             seg.export(seg_path, format="wav")
             logger.debug("Transcribing segment %d", i)
-            with open(seg_path, "rb") as sf:
-                resp = openai.audio.transcriptions.create(
-                    model="whisper-1",
-                    file=sf,
-                    language="en",
-                )
-                results.append(resp.text.strip())
-                logger.debug("Segment %d result: %s", i, resp.text.strip())
-            time.sleep(1)  # prevent hitting API rate limits
+            result = whisper_model.transcribe(seg_path, language="en", fp16=False)
+            results.append(result.get("text", "").strip())
+            logger.debug("Segment %d result: %s", i, result.get("text", "").strip())
 
         return " ".join(results)
 
