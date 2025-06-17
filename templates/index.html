@@ -124,19 +124,12 @@ async function pickSentence() {
 
 document.addEventListener("DOMContentLoaded", pickSentence);
 
-/* ===== TOKENIZE + COMPARE ===== */
-function tokenize(t){ return t.toLowerCase().match(/\b[\w']+\b/g)||[] }
-function compare(s,t){
-  const sT=tokenize(s), tT=tokenize(t);
-  const len=Math.max(sT.length,tT.length);
-  let html="";
-  for(let i=0;i<len;i++){
-    const w=tT[i]??sT[i]??"";
-    if(!w) continue;
-    const ok=(sT[i]||"")===w;
-    html+=`<span style="color:${ok?'#16a34a':'#dc2626'}">${w}</span> `;
-  }
-  return html.trim();
+const CONF_THRESHOLD = 0.6;
+function renderWords(words){
+  return words.map(w => {
+    const color = w.prob !== null && w.prob >= CONF_THRESHOLD ? '#16a34a' : '#dc2626';
+    return `<span style="color:${color}">${w.word}</span>`;
+  }).join(' ');
 }
 
 /* ===== RECORD / STOP ===== */
@@ -159,13 +152,12 @@ async function toggleRecording() {
 async function sendAudio(blob){
   const fd=new FormData();
   fd.append("audio",blob,"speech.webm");
-  fd.append("sentence", currentSentence);
   const transcriptEl=document.getElementById("transcript");
   transcriptEl.textContent="Transcribing…";
   const r=await fetch("/transcribe",{method:"POST",body:fd});
   const d=await r.json();
   transcriptEl.textContent=d.text||"(no text)";
-  document.getElementById("comparison").innerHTML=compare(currentSentence,d.text||"");
+  document.getElementById("comparison").innerHTML=renderWords(d.words||[]);
 }
 
 </script>

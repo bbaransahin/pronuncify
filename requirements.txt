@@ -1,6 +1,4 @@
 flask>=3.0
-openai-whisper>=202311
+faster-whisper>=0.10
 python-dotenv>=1.0
-pydub>=0.25
-aeneas>=1.7
 

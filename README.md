@@ -7,7 +7,11 @@ AI assisted pronunciation training app
 This section explains how the app works
 
 ### Phonetic Comparision
-Phonetic comparision part first takes the sentence to pronunce and the voice recorded by the user while pronuncing the sentence. Instead of transcribing the full recording at once, the [Aeneas](https://www.readbeyond.it/aeneas/) aligner is used to obtain timestamps for every word. Each word segment is then fed to the local Whisper model individually (to prevent transcribing words out of context) and compared with the corresponding word in the original sentence. Segments shorter than 150 ms are padded with silence for reliable recognition.
+The user records a sentence and the application transcribes it using the
+[faster-whisper](https://github.com/guillaumekln/faster-whisper) `base.en`
+model running locally. Word timestamps and confidence scores are returned for
+each recognized word. Words with confidence below a configurable threshold are
+highlighted in red, while others are shown in green.
 
 ## Setup
 
@@ -21,11 +25,9 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Aeneas requires `ffmpeg` and `espeak` to be installed on your system. Refer to
-the [Aeneas documentation](https://github.com/readbeyond/aeneas) for
-platform-specific installation instructions.
 
-The backend uses the [Whisper](https://github.com/openai/whisper) `base.en` model locally, so no OpenAI API key is required.
+The backend uses the [faster-whisper](https://github.com/guillaumekln/faster-whisper)
+`base.en` model locally, so no OpenAI API key is required.
 
 ## Logging
 
