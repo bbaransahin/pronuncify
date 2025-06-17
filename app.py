@@ -1,6 +1,7 @@
 import os
 import tempfile
 import logging
+import re
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from faster_whisper import WhisperModel
@@ -39,7 +40,8 @@ def transcribe_audio(audio_path: str):
     for segment in segments:
         for word in segment.words:
             prob = getattr(word, "probability", None)
-            words.append({"word": word.word, "prob": prob})
+            clean = re.sub(r"^[^\w']+|[^\w']+$", "", word.word).lower()
+            words.append({"word": word.word, "clean": clean, "prob": prob})
 
     text = " ".join(w["word"] for w in words)
     return text, words

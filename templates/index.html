@@ -131,7 +131,8 @@ function tokenize(t){
 function renderWords(words, sentence){
   const expected = tokenize(sentence);
   return words.map((w, i) => {
-    const match = (expected[i] || "").toLowerCase() === w.word.toLowerCase();
+    const clean = (w.clean || w.word).toLowerCase();
+    const match = (expected[i] || "") === clean;
     const ok = match && w.prob !== null && w.prob >= CONF_THRESHOLD;
     const color = ok ? '#16a34a' : '#dc2626';
     return `<span style="color:${color}">${w.word}</span>`;

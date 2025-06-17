@@ -14,6 +14,8 @@ each recognized word. The frontend compares each transcribed word with the
 expected sentence. A word is highlighted in green only if it matches the
 corresponding word of the sentence **and** its confidence is above the
 configurable threshold; otherwise it appears in red.
+Punctuation around words is ignored during comparison so that "test" and
+"test." are treated as a match.
 
 ## Setup
 
