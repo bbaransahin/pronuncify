@@ -1,3 +1,6 @@
 .env
+.python-version
+
+app.log
 
 venv/
