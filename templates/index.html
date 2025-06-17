@@ -128,13 +128,22 @@ const CONF_THRESHOLD = 0.6;
 function tokenize(t){
   return t.toLowerCase().match(/\b[\w']+\b/g) || [];
 }
+function probToColor(p){
+  if(p === null || p === undefined) return '#dc2626';
+  const start = [220, 38, 38];  // red
+  const end = [22, 163, 74];    // green
+  const t = Math.min(1, Math.max(0, p));
+  const r = Math.round(start[0] + (end[0] - start[0]) * t);
+  const g = Math.round(start[1] + (end[1] - start[1]) * t);
+  const b = Math.round(start[2] + (end[2] - start[2]) * t);
+  return `rgb(${r},${g},${b})`;
+}
 function renderWords(words, sentence){
   const expected = tokenize(sentence);
   return words.map((w, i) => {
     const clean = (w.clean || w.word).toLowerCase();
     const match = (expected[i] || "") === clean;
-    const ok = match && w.prob !== null && w.prob >= CONF_THRESHOLD;
-    const color = ok ? '#16a34a' : '#dc2626';
+    const color = match ? probToColor(w.prob) : '#dc2626';
     return `<span style="color:${color}">${w.word}</span>`;
   }).join(' ');
 }
