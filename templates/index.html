@@ -125,9 +125,15 @@ async function pickSentence() {
 document.addEventListener("DOMContentLoaded", pickSentence);
 
 const CONF_THRESHOLD = 0.6;
-function renderWords(words){
-  return words.map(w => {
-    const color = w.prob !== null && w.prob >= CONF_THRESHOLD ? '#16a34a' : '#dc2626';
+function tokenize(t){
+  return t.toLowerCase().match(/\b[\w']+\b/g) || [];
+}
+function renderWords(words, sentence){
+  const expected = tokenize(sentence);
+  return words.map((w, i) => {
+    const match = (expected[i] || "").toLowerCase() === w.word.toLowerCase();
+    const ok = match && w.prob !== null && w.prob >= CONF_THRESHOLD;
+    const color = ok ? '#16a34a' : '#dc2626';
     return `<span style="color:${color}">${w.word}</span>`;
   }).join(' ');
 }
@@ -157,7 +163,7 @@ async function sendAudio(blob){
   const r=await fetch("/transcribe",{method:"POST",body:fd});
   const d=await r.json();
   transcriptEl.textContent=d.text||"(no text)";
-  document.getElementById("comparison").innerHTML=renderWords(d.words||[]);
+  document.getElementById("comparison").innerHTML=renderWords(d.words||[], currentSentence);
 }
 
 </script>

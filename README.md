@@ -10,8 +10,10 @@ This section explains how the app works
 The user records a sentence and the application transcribes it using the
 [faster-whisper](https://github.com/guillaumekln/faster-whisper) `base.en`
 model running locally. Word timestamps and confidence scores are returned for
-each recognized word. Words with confidence below a configurable threshold are
-highlighted in red, while others are shown in green.
+each recognized word. The frontend compares each transcribed word with the
+expected sentence. A word is highlighted in green only if it matches the
+corresponding word of the sentence **and** its confidence is above the
+configurable threshold; otherwise it appears in red.
 
 ## Setup
 
