@@ -139,13 +139,20 @@ function probToColor(p){
   return `rgb(${r},${g},${b})`;
 }
 function renderWords(words, sentence){
+  const tokens = sentence.split(/(\b[\w']+\b)/g); // keep punctuation
   const expected = tokenize(sentence);
-  return words.map((w, i) => {
-    const clean = (w.clean || w.word).toLowerCase();
-    const match = (expected[i] || "") === clean;
-    const color = match ? probToColor(w.prob) : '#dc2626';
-    return `<span style="color:${color}">${w.word}</span>`;
-  }).join(' ');
+  let idx = 0;
+  return tokens.map(t => {
+    if(/\b[\w']+\b/.test(t)){
+      const w = words[idx] || {};
+      const clean = (w.clean || w.word || '').toLowerCase();
+      const match = expected[idx] === clean;
+      const color = match ? probToColor(w.prob) : '#dc2626';
+      idx++;
+      return `<span style="color:${color}">${t}</span>`;
+    }
+    return t;
+  }).join('');
 }
 
 /* ===== RECORD / STOP ===== */
