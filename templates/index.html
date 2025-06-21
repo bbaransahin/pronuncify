@@ -50,6 +50,28 @@
     margin-bottom:1.75rem;
   }
 
+  .word {
+    position:relative;
+    cursor:help;
+  }
+  .word::after {
+    content:attr(data-ipa);
+    position:absolute;
+    left:50%;
+    bottom:120%;
+    transform:translateX(-50%);
+    background:#333;
+    color:#fff;
+    padding:2px 6px;
+    border-radius:4px;
+    font-size:.8rem;
+    white-space:nowrap;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .15s;
+  }
+  .word:hover::after { opacity:1; }
+
   #loader {
     display:none;
     margin:0 auto 1.5rem;
@@ -142,7 +164,7 @@ async function pickSentence() {
       .map(t => {
         if (/\b[\w']+\b/.test(t)) {
           const tip = ipa[idx++] || "";
-          return `<span title="${tip}">${t}</span>`;
+          return `<span class="word" data-ipa="${tip}">${t}</span>`;
         }
         return t;
       })

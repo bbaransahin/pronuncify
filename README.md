@@ -29,6 +29,14 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+This project uses [Epitran](https://github.com/dmort27/epitran) to display IPA
+pronunciations. On Debian/Ubuntu you also need the `flite` and `flite1-dev`
+packages so the `t2p` executable is available:
+
+```bash
+sudo apt-get install flite flite1-dev
+```
+
 
 The backend uses the [faster-whisper](https://github.com/guillaumekln/faster-whisper)
 `base.en` model locally. If you place your `OPENAI_API_KEY` in a `.env` file in
