@@ -3,6 +3,8 @@ import tempfile
 import logging
 import re
 import collections
+import json
+import secrets
 from flask import (
     Flask,
     render_template,
@@ -36,39 +38,62 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Persistent storage for struggled words per user
+USER_COUNTS_FILE = "user_counts.json"
+if os.path.exists(USER_COUNTS_FILE):
+    with open(USER_COUNTS_FILE, "r", encoding="utf-8") as f:
+        USER_COUNTS = json.load(f)
+else:
+    USER_COUNTS = {}
 
-class SentenceQueue:
-    """Fetch and serve GPT sentences in batches to reduce API calls."""
+
+def save_user_counts() -> None:
+    with open(USER_COUNTS_FILE, "w", encoding="utf-8") as f:
+        json.dump(USER_COUNTS, f)
+
+
+def get_user_id() -> str:
+    if "uid" not in session:
+        session["uid"] = secrets.token_hex(16)
+    return session["uid"]
+
+
+class SentenceGenerator:
+    """Generate GPT sentences in batches."""
 
     def __init__(self, batch_size: int = 10, history_limit: int = 50) -> None:
         self.batch_size = batch_size
-        self.queue: list[str] = []
         self.history: collections.deque[str] = collections.deque(maxlen=history_limit)
 
-    def _fetch_batch(self) -> list[str]:
-        """Request a batch of sentences from GPT, retrying if few are returned."""
+    def fetch_batch(self, top_words: list[str] | None = None) -> list[str]:
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             logger.warning("OPENAI_API_KEY not set; using fallback sentences")
             return []
 
         client = openai.OpenAI(api_key=api_key)
-        base_prompt = (
+        prompt = (
             f"Provide {self.batch_size} short English sentences for pronunciation practice. "
             "Avoid rhymes or nonsense. Do not number them or add introductions. "
             "Each sentence must end with a period. Return only the sentences separated by new lines. "
             "The sentences shouldn't be like rhymes, they should be like from real world dialogues. "
         )
+        if top_words:
+            prompt += (
+                "Across the set, try to include the following words at least once: "
+                + ", ".join(top_words)
+                + "."
+            )
 
         attempts = 0
         lines: list[str] = []
         while attempts < 3 and len(lines) < self.batch_size:
             attempts += 1
             try:
-                prompt = base_prompt + f"Seed: {random.random()}"
+                full_prompt = prompt + f" Seed: {random.random()}"
                 resp = client.chat.completions.create(
                     model="gpt-3.5-turbo",
-                    messages=[{"role": "system", "content": prompt}],
+                    messages=[{"role": "system", "content": full_prompt}],
                     max_tokens=self.batch_size * 25,
                     temperature=0.9,
                     presence_penalty=1.0,
@@ -100,15 +125,9 @@ class SentenceQueue:
         logger.info("Generated %d sentences with GPT", len(lines))
         return lines
 
-    def next(self) -> str | None:
-        if not self.queue:
-            self.queue = self._fetch_batch()
-        if self.queue:
-            return self.queue.pop(0)
-        return None
 
+sentence_generator = SentenceGenerator()
 
-sentence_queue = SentenceQueue()
 
 # Initialize Epitran G2P for English
 g2p = FliteT2P()
@@ -150,13 +169,18 @@ def home():
 
 @app.route("/profile")
 def profile():
-    counts = session.get("struggle_counts", {})
+    uid = get_user_id()
+    counts = session.get("struggle_counts")
+    if counts is None:
+        counts = USER_COUNTS.get(uid, {})
+        session["struggle_counts"] = counts
     words = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:10]
     return render_template("profile.html", words=words)
 
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
+    uid = get_user_id()
     file = request.files["audio"]  # speech.webm
     logger.info("Received transcription request")
 
@@ -171,10 +195,14 @@ def transcribe():
         for w in words
         if w.get("prob") is not None and w["clean"] and w["prob"] < CONF_THRESHOLD
     ]
-    counts = session.get("struggle_counts", {})
+    counts = session.get("struggle_counts")
+    if counts is None:
+        counts = USER_COUNTS.get(uid, {})
     for w in struggled:
         counts[w] = counts.get(w, 0) + 1
     session["struggle_counts"] = counts
+    USER_COUNTS[uid] = counts
+    save_user_counts()
 
     logger.info("Transcription completed")
 
@@ -183,43 +211,24 @@ def transcribe():
 
 @app.route("/random-sentence")
 def random_sentence():
-    counts = session.get("struggle_counts", {})
-    top_words = [
-        w for w, _ in sorted(counts.items(), key=lambda x: x[1], reverse=True)[:10]
-    ]
-
-    sentence = None
-    if top_words:
-        api_key = os.getenv("OPENAI_API_KEY")
-        if api_key:
-            client = openai.OpenAI(api_key=api_key)
-            prompt = (
-                "Provide one short English sentence for pronunciation practice. "
-                "Avoid rhymes or nonsense. Do not add introductions. "
-                "Try to include these words: " + ", ".join(top_words) + "."
-            )
-            try:
-                resp = client.chat.completions.create(
-                    model="gpt-3.5-turbo",
-                    messages=[{"role": "system", "content": prompt}],
-                    max_tokens=25,
-                    temperature=0.9,
-                    presence_penalty=1.0,
-                    frequency_penalty=0.5,
-                )
-                text = resp.choices[0].message.content.strip()
-                sentence = re.sub(r"^\s*\d+[.)-]?\s*", "", text).strip("- \t")
-                if not re.search(r"[.!?]\s*$", sentence):
-                    sentence += "."
-            except Exception:
-                logger.exception("Failed to generate custom sentence")
-
-    if not sentence:
-        sentence = sentence_queue.next()
-    if not sentence:
-        with open("static/sentences.txt", "r", encoding="utf-8") as f:
-            lines = [line.strip() for line in f if line.strip()]
-        sentence = random.choice(lines)
+    uid = get_user_id()
+    queue = session.get("sentence_queue", [])
+    if not queue:
+        counts = session.get("struggle_counts")
+        if counts is None:
+            counts = USER_COUNTS.get(uid, {})
+            session["struggle_counts"] = counts
+        top_words = [
+            w for w, _ in sorted(counts.items(), key=lambda x: x[1], reverse=True)[:10]
+        ]
+        queue = sentence_generator.fetch_batch(top_words)
+        if not queue:
+            with open("static/sentences.txt", "r", encoding="utf-8") as f:
+                lines = [line.strip() for line in f if line.strip()]
+            queue = random.sample(lines, min(len(lines), sentence_generator.batch_size))
+        session["sentence_queue"] = queue
+    sentence = queue.pop(0)
+    session["sentence_queue"] = queue
     tokens = re.findall(r"\b[\w']+\b", sentence)
     ipa = phonemize(sentence)
     return jsonify({"sentence": sentence, "words": tokens, "ipa": ipa})
