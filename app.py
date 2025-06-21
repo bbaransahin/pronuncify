@@ -10,7 +10,7 @@ from faster_whisper import WhisperModel
 import openai
 import random
 
-load_dotenv(dotenv_path=Path(__file__).with_name('.env'))
+load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 
 # Load the faster-whisper model once at startup
 whisper_model = WhisperModel("base.en", device="cpu", compute_type="int8")
@@ -21,10 +21,7 @@ app = Flask(__name__)
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler()
-    ],
+    handlers=[logging.FileHandler("app.log"), logging.StreamHandler()],
 )
 
 logger = logging.getLogger(__name__)
@@ -72,7 +69,9 @@ class SentenceQueue:
                     for line in text.splitlines()
                     if line.strip() and re.search(r"[.!?]\s*$", line.strip())
                 ]
-                unique = [l for l in new_lines if l not in self.history and l not in lines]
+                unique = [
+                    l for l in new_lines if l not in self.history and l not in lines
+                ]
                 lines.extend(unique)
             except Exception:
                 logger.exception("Failed to generate sentences with OpenAI")
@@ -82,7 +81,9 @@ class SentenceQueue:
             lines = lines[: self.batch_size]
         if len(lines) < self.batch_size:
             logger.warning(
-                "Expected %d sentences but received %d from OpenAI", self.batch_size, len(lines)
+                "Expected %d sentences but received %d from OpenAI",
+                self.batch_size,
+                len(lines),
             )
         self.history.extend(lines)
         logger.info("Generated %d sentences with GPT", len(lines))
@@ -118,9 +119,11 @@ def transcribe_audio(audio_path: str):
     text = " ".join(w["word"] for w in words)
     return text, words
 
+
 @app.route("/")
 def home():
     return render_template("index.html")
+
 
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
@@ -136,6 +139,7 @@ def transcribe():
 
     return jsonify({"text": text, "words": words})
 
+
 @app.route("/random-sentence")
 def random_sentence():
     sentence = sentence_queue.next()
@@ -148,4 +152,3 @@ def random_sentence():
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)
-
