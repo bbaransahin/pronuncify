@@ -33,11 +33,11 @@ pip install -r requirements.txt
 The backend uses the [faster-whisper](https://github.com/guillaumekln/faster-whisper)
 `base.en` model locally. If you place your `OPENAI_API_KEY` in a `.env` file in
 the same directory as `app.py` (typically the project root), the "New Sentence"
-button will request a fresh practice
-sentence from the GPT-3.5 API. Without the key, sentences are loaded from
-`static/sentences.txt`.
-The server requests sentences in batches of 10 to minimize API calls, and any
-leading numbers are stripped so each practice line is just a plain sentence.
+button will request practice sentences from the GPT-3.5 API instead of the
+fallback list in `static/sentences.txt`.
+Sentences are requested in batches of 10 to minimize API usage, and the backend
+removes any numbering or introductory text so each line is a normal,
+punctuated English sentence.
 
 ## Logging
 

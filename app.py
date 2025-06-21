@@ -50,9 +50,11 @@ class SentenceQueue:
                     {
                         "role": "system",
                         "content": (
-                            f"You are a pronunciation coach. Provide {self.batch_size} short, unique "
-                            "English sentences separated by newlines. Avoid pangrams like 'the quick brown fox'. "
-                            "Do not number them."
+                            f"You are a pronunciation coach. Return exactly {self.batch_size} short, everyday "
+                            "English sentences for pronunciation practice. "
+                            "Avoid rhymes, nonsense, or pangrams like 'the quick brown fox'. "
+                            "Each sentence must end with a period and appear on its own line with no numbering "
+                            "or introduction."
                         ),
                     }
                 ],
@@ -64,7 +66,7 @@ class SentenceQueue:
             lines = [
                 re.sub(r"^\s*\d+[.)-]?\s*", "", line).strip("- \t")
                 for line in text.splitlines()
-                if line.strip()
+                if line.strip() and re.search(r"[.!?]\s*$", line)
             ]
             if len(lines) < self.batch_size:
                 logger.warning(
