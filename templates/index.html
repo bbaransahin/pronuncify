@@ -44,7 +44,7 @@
     position:relative;
   }
   .profile-link {
-    position:absolute;
+    position:fixed;
     top:1rem;
     right:1rem;
     font-size:.9rem;
@@ -137,8 +137,8 @@
 </head>
 
 <body>
+  <a href="/profile" class="btn btn-secondary profile-link">Profile</a>
   <div class="card">
-    <a href="/profile" class="btn btn-secondary profile-link">Profile</a>
     <div id="sentence-box"></div>
     <div id="loader" class="loader"></div>
     <div>
