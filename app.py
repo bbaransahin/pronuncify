@@ -51,7 +51,8 @@ class SentenceQueue:
                         "role": "system",
                         "content": (
                             f"You are a pronunciation coach. Provide {self.batch_size} short, unique "
-                            "English sentences separated by newlines. Avoid pangrams like 'the quick brown fox'."
+                            "English sentences separated by newlines. Avoid pangrams like 'the quick brown fox'. "
+                            "Do not number them."
                         ),
                     }
                 ],
@@ -60,7 +61,11 @@ class SentenceQueue:
                 presence_penalty=1.0,
             )
             text = resp.choices[0].message.content
-            lines = [line.strip("- \t") for line in text.splitlines() if line.strip()]
+            lines = [
+                re.sub(r"^\s*\d+[.)-]?\s*", "", line).strip("- \t")
+                for line in text.splitlines()
+                if line.strip()
+            ]
             if len(lines) < self.batch_size:
                 logger.warning(
                     "Expected %d sentences but received %d from OpenAI", self.batch_size, len(lines)
