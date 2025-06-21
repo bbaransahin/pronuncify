@@ -50,6 +50,21 @@
     margin-bottom:1.75rem;
   }
 
+  #loader {
+    display:none;
+    margin:0 auto 1.5rem;
+    width:24px;
+    height:24px;
+    border:3px solid #e2e8f0;
+    border-top-color:var(--accent);
+    border-radius:50%;
+    animation:spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
   /* ----- BUTTONS ----- */
   .btn {
     display:inline-block;
@@ -94,6 +109,7 @@
 <body>
   <div class="card">
     <div id="sentence-box"></div>
+    <div id="loader" class="loader"></div>
     <div>
       <button id="rec-btn" class="btn btn-primary" onclick="toggleRecording()">Start Recording</button>
       <button id="new-btn" class="btn btn-secondary" onclick="pickSentence()">New Sentence</button>
@@ -110,14 +126,20 @@ let recording = false, mediaRecorder, chunks = [], currentSentence = "";
 
 /* ===== LOAD SENTENCES ===== */
 async function pickSentence() {
+  const loader = document.getElementById("loader");
+  const show = setTimeout(() => (loader.style.display = "block"), 250);
   try {
     const resp = await fetch("/random-sentence");
     const data = await resp.json();
+    clearTimeout(show);
+    loader.style.display = "none";
     currentSentence = data.sentence;
     document.getElementById("sentence-box").textContent = currentSentence;
     document.getElementById("transcript").textContent = "";
     document.getElementById("comparison").innerHTML = "";
   } catch (err) {
+    clearTimeout(show);
+    loader.style.display = "none";
     console.error("Failed to load sentence:", err);
   }
 }

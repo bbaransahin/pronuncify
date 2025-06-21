@@ -39,6 +39,9 @@ Sentences are requested in batches of 10 to minimize API usage, and the backend
 removes any numbering or introductory text so each line is a normal,
 punctuated English sentence.
 
+While a new batch of sentences is loading from GPT, the frontend briefly shows
+a spinner so you know it is working.
+
 ## Logging
 
 The Flask server writes detailed logs to `app.log` in the project root. Check
