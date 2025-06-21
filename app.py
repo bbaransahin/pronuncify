@@ -2,6 +2,7 @@ import os
 import tempfile
 import logging
 import re
+import collections
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
 from pathlib import Path
@@ -32,9 +33,10 @@ logger = logging.getLogger(__name__)
 class SentenceQueue:
     """Fetch and serve GPT sentences in batches to reduce API calls."""
 
-    def __init__(self, batch_size: int = 10) -> None:
+    def __init__(self, batch_size: int = 10, history_limit: int = 50) -> None:
         self.batch_size = batch_size
         self.queue: list[str] = []
+        self.history: collections.deque[str] = collections.deque(maxlen=history_limit)
 
     def _fetch_batch(self) -> list[str]:
         """Request a batch of sentences from GPT, retrying if few are returned."""
@@ -44,10 +46,10 @@ class SentenceQueue:
             return []
 
         client = openai.OpenAI(api_key=api_key)
-        prompt = (
+        base_prompt = (
             f"Provide {self.batch_size} short English sentences for pronunciation practice. "
             "Avoid rhymes or nonsense. Do not number them or add introductions. "
-            "Each sentence must end with a period. Return only the sentences separated by new lines."
+            "Each sentence must end with a period. Return only the sentences separated by new lines. "
         )
 
         attempts = 0
@@ -55,12 +57,14 @@ class SentenceQueue:
         while attempts < 3 and len(lines) < self.batch_size:
             attempts += 1
             try:
+                prompt = base_prompt + f"Seed: {random.random()}"
                 resp = client.chat.completions.create(
                     model="gpt-3.5-turbo",
                     messages=[{"role": "system", "content": prompt}],
                     max_tokens=self.batch_size * 25,
                     temperature=0.9,
                     presence_penalty=1.0,
+                    frequency_penalty=0.5,
                 )
                 text = resp.choices[0].message.content
                 new_lines = [
@@ -68,7 +72,8 @@ class SentenceQueue:
                     for line in text.splitlines()
                     if line.strip() and re.search(r"[.!?]\s*$", line.strip())
                 ]
-                lines.extend(new_lines)
+                unique = [l for l in new_lines if l not in self.history and l not in lines]
+                lines.extend(unique)
             except Exception:
                 logger.exception("Failed to generate sentences with OpenAI")
                 return []
@@ -79,6 +84,7 @@ class SentenceQueue:
             logger.warning(
                 "Expected %d sentences but received %d from OpenAI", self.batch_size, len(lines)
             )
+        self.history.extend(lines)
         logger.info("Generated %d sentences with GPT", len(lines))
         return lines
 
