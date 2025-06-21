@@ -9,6 +9,7 @@ from pathlib import Path
 from faster_whisper import WhisperModel
 import openai
 import random
+from epitran.flite import FliteT2P
 
 load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 
@@ -99,6 +100,9 @@ class SentenceQueue:
 
 sentence_queue = SentenceQueue()
 
+# Initialize Epitran G2P for English
+g2p = FliteT2P()
+
 
 def transcribe_audio(audio_path: str):
     """Transcribe the full audio file and return words with probabilities."""
@@ -118,6 +122,12 @@ def transcribe_audio(audio_path: str):
 
     text = " ".join(w["word"] for w in words)
     return text, words
+
+
+def phonemize(sentence: str) -> list[str]:
+    """Return IPA transcription for each word in the sentence."""
+    tokens = re.findall(r"\b[\w']+\b", sentence)
+    return [g2p.transliterate(t.lower()) for t in tokens]
 
 
 @app.route("/")
@@ -147,7 +157,9 @@ def random_sentence():
         with open("static/sentences.txt", "r", encoding="utf-8") as f:
             lines = [line.strip() for line in f if line.strip()]
         sentence = random.choice(lines)
-    return jsonify({"sentence": sentence})
+    tokens = re.findall(r"\b[\w']+\b", sentence)
+    ipa = phonemize(sentence)
+    return jsonify({"sentence": sentence, "words": tokens, "ipa": ipa})
 
 
 if __name__ == "__main__":

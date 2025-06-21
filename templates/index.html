@@ -134,7 +134,20 @@ async function pickSentence() {
     clearTimeout(show);
     loader.style.display = "none";
     currentSentence = data.sentence;
-    document.getElementById("sentence-box").textContent = currentSentence;
+    const tokens = data.words;
+    const ipa = data.ipa;
+    const parts = currentSentence.split(/(\b[\w']+\b)/g);
+    let idx = 0;
+    const html = parts
+      .map(t => {
+        if (/\b[\w']+\b/.test(t)) {
+          const tip = ipa[idx++] || "";
+          return `<span title="${tip}">${t}</span>`;
+        }
+        return t;
+      })
+      .join("");
+    document.getElementById("sentence-box").innerHTML = html;
     document.getElementById("transcript").textContent = "";
     document.getElementById("comparison").innerHTML = "";
   } catch (err) {
