@@ -41,6 +41,14 @@
     border-radius:var(--radius);
     box-shadow:0 12px 24px rgba(0,0,0,.06);
     text-align:center;
+    position:relative;
+  }
+  .profile-link {
+    position:absolute;
+    top:1rem;
+    right:1rem;
+    font-size:.9rem;
+    padding:.5rem 1rem;
   }
 
   #sentence-box {
@@ -130,6 +138,7 @@
 
 <body>
   <div class="card">
+    <a href="/profile" class="btn btn-secondary profile-link">Profile</a>
     <div id="sentence-box"></div>
     <div id="loader" class="loader"></div>
     <div>
@@ -139,9 +148,6 @@
 
     <pre id="transcript"></pre>
     <div id="comparison"></div>
-    <div style="margin-top:1rem;">
-      <a href="/profile">View Profile</a>
-    </div>
   </div>
 
 <script>
