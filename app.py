@@ -37,46 +37,50 @@ class SentenceQueue:
         self.queue: list[str] = []
 
     def _fetch_batch(self) -> list[str]:
+        """Request a batch of sentences from GPT, retrying if few are returned."""
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             logger.warning("OPENAI_API_KEY not set; using fallback sentences")
             return []
 
         client = openai.OpenAI(api_key=api_key)
-        try:
-            resp = client.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            f"You are a pronunciation coach. Return exactly {self.batch_size} short, everyday "
-                            "English sentences for pronunciation practice. "
-                            "Avoid rhymes, nonsense, or pangrams like 'the quick brown fox'. "
-                            "Each sentence must end with a period and appear on its own line with no numbering "
-                            "or introduction."
-                        ),
-                    }
-                ],
-                max_tokens=self.batch_size * 20,
-                temperature=0.9,
-                presence_penalty=1.0,
-            )
-            text = resp.choices[0].message.content
-            lines = [
-                re.sub(r"^\s*\d+[.)-]?\s*", "", line).strip("- \t")
-                for line in text.splitlines()
-                if line.strip() and re.search(r"[.!?]\s*$", line)
-            ]
-            if len(lines) < self.batch_size:
-                logger.warning(
-                    "Expected %d sentences but received %d from OpenAI", self.batch_size, len(lines)
+        prompt = (
+            f"Provide {self.batch_size} short English sentences for pronunciation practice. "
+            "Avoid rhymes or nonsense. Do not number them or add introductions. "
+            "Each sentence must end with a period. Return only the sentences separated by new lines."
+        )
+
+        attempts = 0
+        lines: list[str] = []
+        while attempts < 3 and len(lines) < self.batch_size:
+            attempts += 1
+            try:
+                resp = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "system", "content": prompt}],
+                    max_tokens=self.batch_size * 25,
+                    temperature=0.9,
+                    presence_penalty=1.0,
                 )
-            logger.info("Generated %d sentences with GPT", len(lines))
-            return lines
-        except Exception:
-            logger.exception("Failed to generate sentences with OpenAI")
-            return []
+                text = resp.choices[0].message.content
+                new_lines = [
+                    re.sub(r"^\s*\d+[.)-]?\s*", "", line).strip("- \t")
+                    for line in text.splitlines()
+                    if line.strip() and re.search(r"[.!?]\s*$", line.strip())
+                ]
+                lines.extend(new_lines)
+            except Exception:
+                logger.exception("Failed to generate sentences with OpenAI")
+                return []
+
+        if len(lines) > self.batch_size:
+            lines = lines[: self.batch_size]
+        if len(lines) < self.batch_size:
+            logger.warning(
+                "Expected %d sentences but received %d from OpenAI", self.batch_size, len(lines)
+            )
+        logger.info("Generated %d sentences with GPT", len(lines))
+        return lines
 
     def next(self) -> str | None:
         if not self.queue:

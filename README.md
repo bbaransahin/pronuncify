@@ -35,9 +35,9 @@ The backend uses the [faster-whisper](https://github.com/guillaumekln/faster-whi
 the same directory as `app.py` (typically the project root), the "New Sentence"
 button will request practice sentences from the GPT-3.5 API instead of the
 fallback list in `static/sentences.txt`.
-Sentences are requested in batches of 10 to minimize API usage, and the backend
-removes any numbering or introductory text so each line is a normal,
-punctuated English sentence.
+Sentences are requested in batches of 10 to minimize API usage. The backend
+strips numbering or introductions from GPT's reply and retries if fewer than 10
+sentences are returned so each line is a normal, punctuated English sentence.
 
 While a new batch of sentences is loading from GPT, the frontend briefly shows
 a spinner so you know it is working.
