@@ -31,8 +31,9 @@ pip install -r requirements.txt
 
 
 The backend uses the [faster-whisper](https://github.com/guillaumekln/faster-whisper)
-`base.en` model locally. If you place your `OPENAI_API_KEY` in a `.env` file at
-the project root, the "New Sentence" button will request a fresh practice
+`base.en` model locally. If you place your `OPENAI_API_KEY` in a `.env` file in
+the same directory as `app.py` (typically the project root), the "New Sentence"
+button will request a fresh practice
 sentence from the GPT-3.5 API. Without the key, sentences are loaded from
 `static/sentences.txt`.
 

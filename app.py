@@ -4,11 +4,12 @@ import logging
 import re
 from flask import Flask, render_template, request, jsonify
 from dotenv import load_dotenv
+from pathlib import Path
 from faster_whisper import WhisperModel
 import openai
 import random
 
-load_dotenv()
+load_dotenv(dotenv_path=Path(__file__).with_name('.env'))
 
 # Load the faster-whisper model once at startup
 whisper_model = WhisperModel("base.en", device="cpu", compute_type="int8")
@@ -47,17 +48,18 @@ def generate_sentence_gpt() -> str | None:
                 {
                     "role": "system",
                     "content": (
-                        "You help learners practice pronunciation by providing short and varied sentences."
+                        "You are a pronunciation coach. Respond with a short, unique English sentence each time. "
+                        "Avoid pangrams like 'the quick brown fox'."
                     ),
                 },
                 {
                     "role": "user",
-                    "content": "Give me one short, unique English sentence.",
+                    "content": "Give me one new sentence for students to practice.",
                 },
             ],
             max_tokens=20,
-            temperature=1.0,
-            presence_penalty=0.6,
+            temperature=0.9,
+            presence_penalty=1.0,
         )
         sentence = resp.choices[0].message.content.strip()
         logger.info("Generated sentence with GPT: %s", sentence)
