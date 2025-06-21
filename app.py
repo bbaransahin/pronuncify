@@ -48,6 +48,7 @@ class SentenceQueue:
             f"Provide {self.batch_size} short English sentences for pronunciation practice. "
             "Avoid rhymes or nonsense. Do not number them or add introductions. "
             "Each sentence must end with a period. Return only the sentences separated by new lines. "
+            "The sentences shouldn't be like rhymes, they should be like from real world dialogues. "
         )
 
         attempts = 0
