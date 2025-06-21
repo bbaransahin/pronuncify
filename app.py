@@ -3,7 +3,15 @@ import tempfile
 import logging
 import re
 import collections
-from flask import Flask, render_template, request, jsonify
+from flask import (
+    Flask,
+    render_template,
+    request,
+    jsonify,
+    session,
+    redirect,
+    url_for,
+)
 from dotenv import load_dotenv
 from pathlib import Path
 from faster_whisper import WhisperModel
@@ -17,6 +25,7 @@ load_dotenv(dotenv_path=Path(__file__).with_name(".env"))
 whisper_model = WhisperModel("base.en", device="cpu", compute_type="int8")
 
 app = Flask(__name__)
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret")
 
 # Configure logging to file for debugging
 logging.basicConfig(
@@ -104,6 +113,9 @@ sentence_queue = SentenceQueue()
 # Initialize Epitran G2P for English
 g2p = FliteT2P()
 
+# Confidence threshold below which a word is considered "struggled"
+CONF_THRESHOLD = 0.6
+
 
 def transcribe_audio(audio_path: str):
     """Transcribe the full audio file and return words with probabilities."""
@@ -136,6 +148,13 @@ def home():
     return render_template("index.html")
 
 
+@app.route("/profile")
+def profile():
+    counts = session.get("struggle_counts", {})
+    words = sorted(counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    return render_template("profile.html", words=words)
+
+
 @app.route("/transcribe", methods=["POST"])
 def transcribe():
     file = request.files["audio"]  # speech.webm
@@ -146,6 +165,17 @@ def transcribe():
         text, words = transcribe_audio(tmp.name)
         os.remove(tmp.name)
 
+    # Track struggled words in session
+    struggled = [
+        w["clean"]
+        for w in words
+        if w.get("prob") is not None and w["clean"] and w["prob"] < CONF_THRESHOLD
+    ]
+    counts = session.get("struggle_counts", {})
+    for w in struggled:
+        counts[w] = counts.get(w, 0) + 1
+    session["struggle_counts"] = counts
+
     logger.info("Transcription completed")
 
     return jsonify({"text": text, "words": words})
@@ -153,7 +183,39 @@ def transcribe():
 
 @app.route("/random-sentence")
 def random_sentence():
-    sentence = sentence_queue.next()
+    counts = session.get("struggle_counts", {})
+    top_words = [
+        w for w, _ in sorted(counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    ]
+
+    sentence = None
+    if top_words:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if api_key:
+            client = openai.OpenAI(api_key=api_key)
+            prompt = (
+                "Provide one short English sentence for pronunciation practice. "
+                "Avoid rhymes or nonsense. Do not add introductions. "
+                "Try to include these words: " + ", ".join(top_words) + "."
+            )
+            try:
+                resp = client.chat.completions.create(
+                    model="gpt-3.5-turbo",
+                    messages=[{"role": "system", "content": prompt}],
+                    max_tokens=25,
+                    temperature=0.9,
+                    presence_penalty=1.0,
+                    frequency_penalty=0.5,
+                )
+                text = resp.choices[0].message.content.strip()
+                sentence = re.sub(r"^\s*\d+[.)-]?\s*", "", text).strip("- \t")
+                if not re.search(r"[.!?]\s*$", sentence):
+                    sentence += "."
+            except Exception:
+                logger.exception("Failed to generate custom sentence")
+
+    if not sentence:
+        sentence = sentence_queue.next()
     if not sentence:
         with open("static/sentences.txt", "r", encoding="utf-8") as f:
             lines = [line.strip() for line in f if line.strip()]
