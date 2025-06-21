@@ -179,7 +179,20 @@ async function pickSentence() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", pickSentence);
+function speakWord(word) {
+  const utterance = new SpeechSynthesisUtterance(word);
+  utterance.lang = 'en-US';
+  window.speechSynthesis.speak(utterance);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  pickSentence();
+  document.getElementById("sentence-box").addEventListener("click", e => {
+    if (e.target.classList.contains("word")) {
+      speakWord(e.target.textContent);
+    }
+  });
+});
 
 const CONF_THRESHOLD = 0.6;
 function tokenize(t){
