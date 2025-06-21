@@ -182,6 +182,7 @@ def profile():
 def transcribe():
     uid = get_user_id()
     file = request.files["audio"]  # speech.webm
+    sentence = request.form.get("sentence", "")
     logger.info("Received transcription request")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
@@ -189,25 +190,22 @@ def transcribe():
         text, words = transcribe_audio(tmp.name)
         os.remove(tmp.name)
 
-    # Track struggled words in session
-    struggled = [
-        w["clean"]
-        for w in words
-        if w.get("prob") is not None and w["clean"] and w["prob"] < CONF_THRESHOLD
-    ]
-    spelled_ok = [
-        w["clean"]
-        for w in words
-        if w.get("prob") is not None and w["clean"] and w["prob"] >= CONF_THRESHOLD
-    ]
+    # Track struggled words based on expected sentence
+    expected = re.findall(r"\b[\w']+\b", sentence.lower())
     counts = session.get("struggle_counts")
     if counts is None:
         counts = USER_COUNTS.get(uid, {})
-    for w in struggled:
-        counts[w] = counts.get(w, 0) + 1
-    for w in spelled_ok:
-        if w in counts:
-            counts[w] = max(0, counts[w] - 1)
+    for i, orig in enumerate(expected):
+        if i >= len(words):
+            counts[orig] = counts.get(orig, 0) + 1
+            continue
+        w = words[i]
+        clean = w.get("clean", "")
+        prob = w.get("prob")
+        if clean != orig or prob is None or prob < CONF_THRESHOLD:
+            counts[orig] = counts.get(orig, 0) + 1
+        else:
+            counts[orig] = max(0, counts.get(orig, 0) - 1)
     session["struggle_counts"] = counts
     USER_COUNTS[uid] = counts
     save_user_counts()

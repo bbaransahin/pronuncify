@@ -254,6 +254,7 @@ async function toggleRecording() {
 async function sendAudio(blob){
   const fd=new FormData();
   fd.append("audio",blob,"speech.webm");
+  fd.append("sentence",currentSentence);
   const transcriptEl=document.getElementById("transcript");
   transcriptEl.textContent="Transcribing…";
   const r=await fetch("/transcribe",{method:"POST",body:fd});
