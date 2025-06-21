@@ -26,8 +26,19 @@
     margin-top: 0;
     text-align: center;
   }
-  ul { list-style: none; padding: 0; }
-  li { padding: .25rem 0; }
+  .word-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+  }
+  .word-table th,
+  .word-table td {
+    text-align: left;
+    padding: .4rem .5rem;
+  }
+  .word-table tbody tr:nth-child(odd) {
+    background: #f1f5f9;
+  }
   .back { margin-top: 1rem; text-align: center; }
 
   /* ----- BUTTONS ----- */
@@ -54,13 +65,26 @@
 <body>
   <div class="card">
     <h1>Most Struggled Words</h1>
-    <ul>
-      {% for word, count in words %}
-      <li>{{ word }} - {{ count }}</li>
-      {% else %}
-      <li>No data yet.</li>
-      {% endfor %}
-    </ul>
+    <table class="word-table">
+      <thead>
+        <tr>
+          <th>Word</th>
+          <th>Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for word, count in words %}
+        <tr>
+          <td>{{ word }}</td>
+          <td>{{ count }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="2">No data yet.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
     <div class="back"><a href="/" class="btn btn-secondary">Back to Practice</a></div>
   </div>
 </body>
