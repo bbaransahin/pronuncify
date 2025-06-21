@@ -45,14 +45,19 @@ def generate_sentence_gpt() -> str | None:
             model="gpt-3.5-turbo",
             messages=[
                 {
-                    "role": "user",
+                    "role": "system",
                     "content": (
-                        "Generate one short English sentence for pronunciation practice."
+                        "You help learners practice pronunciation by providing short and varied sentences."
                     ),
-                }
+                },
+                {
+                    "role": "user",
+                    "content": "Give me one short, unique English sentence.",
+                },
             ],
             max_tokens=20,
-            temperature=0.8,
+            temperature=1.0,
+            presence_penalty=0.6,
         )
         sentence = resp.choices[0].message.content.strip()
         logger.info("Generated sentence with GPT: %s", sentence)
