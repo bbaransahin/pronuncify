@@ -36,6 +36,7 @@ the same directory as `app.py` (typically the project root), the "New Sentence"
 button will request a fresh practice
 sentence from the GPT-3.5 API. Without the key, sentences are loaded from
 `static/sentences.txt`.
+The server requests sentences in batches of 10 to minimize API calls.
 
 ## Logging
 
